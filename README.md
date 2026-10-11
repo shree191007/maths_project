@@ -24,18 +24,18 @@ re-fetches it from
 
 ## The four parts
 
-Each part is one algorithm module, one plotting module and one test file. Parts depend only on `data.py`,
+Each part is one algorithm module, one plotting module and one test file. Parts depend only on `data_loader.py`,
 `metrics.py` and the contracts below, so they can be developed in parallel.
 
 | Part | Owner focus | Code | Math | Deliverable |
 |---|---|---|---|---|
-| **1. Data & interpolation** | reconstruct missing years | [data.py](climatematrix/data.py), [interpolation.py](climatematrix/interpolation.py), [plot_interpolation.py](climatematrix/plot_interpolation.py) | Lagrange `P(t)=ΣTᵢLᵢ(t)`, Vandermonde system `Vc=y`, tridiagonal system for natural cubic splines | actual vs reconstructed graph; table of interpolation errors (`reports/tables/p1_*`) |
+| **1. Data & interpolation** | reconstruct missing years | [data_loader.py](climatematrix/data_loader.py), [interpolation.py](climatematrix/interpolation.py), [plot_interpolation.py](climatematrix/plot_interpolation.py) | Lagrange `P(t)=ΣTᵢLᵢ(t)`, Vandermonde system `Vc=y`, tridiagonal system for natural cubic splines | actual vs reconstructed graph; table of interpolation errors (`reports/tables/p1_*`) |
 | **2. Regression & extrapolation** | trend + future years | [regression.py](climatematrix/regression.py), [plot_regression.py](climatematrix/plot_regression.py) | design matrix `X`, least squares via QR (`Rβ=Qᵀy`), normal equations vs conditioning, prediction intervals | history-vs-predicted graph with coefficients, 2030/2040/2050 forecasts, hold-out errors (`p2_*`) |
 | **3. SVD & patterns** | dominant regional modes | [svd_analysis.py](climatematrix/svd_analysis.py), [plot_svd.py](climatematrix/plot_svd.py) | `A=UΣVᵀ`, centring, Eckart–Young, low-rank + soft-threshold matrix completion | explained-variance plot; original vs reconstructed (`p3_*`) |
 | **4. Validation & dashboard** | compare everything fairly | [validation.py](climatematrix/validation.py), [metrics.py](climatematrix/metrics.py), [plot_validation.py](climatematrix/plot_validation.py), [pipeline.py](climatematrix/pipeline.py), [app.py](app.py) | error norms (ℓ₁, ℓ₂, ℓ∞), condition numbers, noise amplification | dashboard, comparison tables (`p4_*`), report |
 
 ```
-NASA GISTEMP ──► data.py ─┬─► Part 1 interpolation ──┐
+NASA GISTEMP ──► data_loader.py ─┬─► Part 1 interpolation ──┐
                           ├─► Part 2 regression ─────┼─► Part 4 validation ─► dashboard + report
                           └─► Part 3 SVD ────────────┘
 ```

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from . import data, interpolation as ip, regression as rg, svd_analysis as sv, validation as va
+from . import data_loader as data, interpolation as ip, regression as rg, svd_analysis as sv, validation as va
 from . import plot_interpolation as p1, plot_regression as p2, plot_svd as p3, plot_validation as p4
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +41,16 @@ def load(start: int = 1880, end: int | None = None):
     df = data.load_zonal()
     g = data.global_series(df, start, end)
     return df, g.index.to_numpy(float), g.to_numpy()
+
+
+def run_data(out: Path = OUT) -> dict:
+    """Person 2 (data): quality report, data/processed/climate.csv and the trend / matrix figures."""
+    df = data.load_zonal()
+    res = {"quality": data.quality_report(), "processed": data.export_processed(df)}
+    A, yrs, names = data.region_matrix(df)
+    _save(data.plot_trends(df), "data_trends", out)
+    _save(data.plot_matrix(A, yrs, names), "data_matrix", out)
+    return res
 
 
 def run_part1(out: Path = OUT, start=1880, end=None, n_trials=200) -> dict:
@@ -142,4 +152,4 @@ def run_part4(out: Path = OUT, start=1880, end=None, n_trials=30) -> dict:
 
 
 def run_all(out: Path = OUT) -> dict:
-    return {"part1": run_part1(out), "part2": run_part2(out), "part3": run_part3(out), "part4": run_part4(out)}
+    return {"data": run_data(out), "part1": run_part1(out), "part2": run_part2(out), "part3": run_part3(out), "part4": run_part4(out)}

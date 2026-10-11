@@ -1,4 +1,4 @@
-"""Usage:  python scripts/run_all.py [1|2|3|4|all]
+"""Usage:  python scripts/run_all.py [data|1|2|3|4|all]
 
 Writes figures to reports/figures and tables to reports/tables.
 """
@@ -11,7 +11,7 @@ from climatematrix import pipeline  # noqa: E402
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    runners = {"1": pipeline.run_part1, "2": pipeline.run_part2, "3": pipeline.run_part3, "4": pipeline.run_part4}
+    runners = {"data": pipeline.run_data, "1": pipeline.run_part1, "2": pipeline.run_part2, "3": pipeline.run_part3, "4": pipeline.run_part4}
     for key in (runners if which == "all" else [which]):
         print(f"Part {key} ...", flush=True)
         runners[key]()
