@@ -1,0 +1,6 @@
+method,nodes,amplification
+linear,146,0.9197549664018997
+lagrange (4-pt local),146,0.9691630795373277
+lagrange (6-pt local),146,1.0017685443523625
+cubic spline,146,1.0159915454521768
+lagrange (global),25,13254.54774146824
