@@ -1,6 +1,6 @@
 import numpy as np
 
-from climatematrix import data, metrics, validation as va
+from climatematrix import data_loader as data, metrics, validation as va
 
 
 def test_metrics():
@@ -42,3 +42,12 @@ def test_forecast_spread_skips_windows_that_start_too_late():
     t = np.arange(1880.0, 1931); y = 0.01 * (t - 1880)
     s = va.forecast_spread(t, y)  # default starts include 1940+ which have no data
     assert len(s) > 0 and s["start"].max() < 1930
+
+
+def test_quality_report_and_processed_export(tmp_path):
+    q = data.quality_report()
+    assert q["rows"] == 146 and q["duplicate_years"] == 0 and q["missing_cells"] == 0
+    out = data.export_processed(dest=tmp_path / "climate.csv")
+    import pandas as pd
+    back = pd.read_csv(out, index_col="Year")
+    assert list(back.columns) == ["Glob"] + data.BAND_NAMES and back.shape == (146, 9)

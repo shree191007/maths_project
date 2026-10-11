@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from climatematrix import data, interpolation as ip, metrics, regression as rg, svd_analysis as sv, validation as va
+from climatematrix import data_loader as data, interpolation as ip, metrics, regression as rg, svd_analysis as sv, validation as va
 from climatematrix import plot_interpolation as p1, plot_regression as p2, plot_svd as p3, plot_validation as p4
 from climatematrix.plot_style import BLUE, GRAY, ORANGE, new_fig
 
