@@ -7,8 +7,9 @@ NASA GISTEMP v4 zonal annual anomalies (1880–2025, eight latitude bands).
 > missing climate data, and how reliable is extrapolation beyond the observed period?
 
 The whole project is **four Python files, one per person**. Results and interpretation are in
-[REPORT.md](REPORT.md); who did what, in simple words, is in [WHO_DID_WHAT.md](WHO_DID_WHAT.md); the speaking
-script is [PRESENTATION_SCRIPT.md](PRESENTATION_SCRIPT.md).
+[REPORT.md](REPORT.md); who did what, in simple words, is in [WHO_DID_WHAT.md](WHO_DID_WHAT.md); every function in
+every file is documented in [DOCUMENTATION.md](DOCUMENTATION.md); the speaking script is
+[PRESENTATION_SCRIPT.md](PRESENTATION_SCRIPT.md).
 
 ## Quick start
 
