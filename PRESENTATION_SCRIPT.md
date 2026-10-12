@@ -1,17 +1,17 @@
 # ClimateMatrix: presentation script for four speakers
 
 Every code snippet below is copied from this repository. Each is followed by what it does in plain words.
-All numbers come from `reports/tables/` and can be regenerated with `python scripts/run_all.py`.
+All numbers come from `reports/tables/` and can be regenerated with `python person4_validation.py all`.
 
 **Speaking order (about 3 minutes each, 13 minutes in total):** Opening → Person 2 (data) → Person 1 (math) → Person 3 (regression) → Person 4 (validation + dashboard) → Closing.
 The order follows how the data flows: *data → math → trends → testing*.
 
 | | Person | Files | Output they bring | Pipeline command |
 |---|---|---|---|---|
-| 2 | Data | `climatematrix/data_loader.py` | `data/processed/climate.csv`, `reports/figures/data_trends.png`, `data_matrix.png` | `python scripts/run_all.py data` |
-| 1 | Mathematics | `interpolation.py`, `svd_analysis.py` | interpolation error table, scree plot, rank-vs-error table | `python scripts/run_all.py 1` and `3` |
-| 3 | Regression | `regression.py` | `p2_fits.png`, `p2_extrapolation.csv` | `python scripts/run_all.py 2` |
-| 4 | Validation + dashboard | `validation.py`, `metrics.py`, `app.py` | `p4_*` tables and figures, the live dashboard | `python scripts/run_all.py 4`, `streamlit run app.py` |
+| 2 | Data | `person2_data.py` | `data/processed/climate.csv`, `reports/figures/data_trends.png`, `data_matrix.png` | `python person2_data.py` |
+| 1 | Mathematics | `person1_math.py` | interpolation error table, scree plot, rank-vs-error table | `python person1_math.py` |
+| 3 | Regression | `person3_regression.py` | `regression_fits.png`, `regression_extrapolation.csv` | `python person3_regression.py` |
+| 4 | Validation + dashboard | `person4_validation.py` | `validation_*` tables and figures, the live dashboard | `python person4_validation.py` (add `all` to run everyone's), `streamlit run person4_validation.py` |
 
 ---
 
@@ -25,7 +25,7 @@ The order follows how the data flows: *data → math → trends → testing*.
 
 ---
 
-## Person 2: Data (`data_loader.py`)
+## Person 2: Data (`person2_data.py`)
 
 **Your sentence:** *"I collected and cleaned the climate dataset and prepared it for mathematical analysis."*
 
@@ -106,7 +106,7 @@ Selects the years you ask for and the 8 band columns, then **`.T` transposes** s
 
 ---
 
-## Person 1: Mathematics (`interpolation.py`, `svd_analysis.py`)
+## Person 1: Mathematics (`person1_math.py`)
 
 **Your sentence:** *"I implemented interpolation to estimate missing values and SVD to identify dominant patterns in climate data."*
 
@@ -156,12 +156,12 @@ This is the formula **P(t) = Σ Tᵢ Lᵢ(t)** exactly. The inner loop builds th
 ```
 For each missing year it picks the `window` nearest known years (we use 4 or 6) and interpolates only through those. `window=2` gives back linear interpolation.
 
-**4. Hiding data and scoring (the test)**
+**4. Hiding data and rebuilding it** (these two functions are yours; Person 4's `holdout_experiment` calls them in a loop)
 ```python
         hidden = make_hidden_mask(len(years), round(frac * len(years)), gap_length, rng)
         for name, pred in predict_hidden(years, values, hidden, methods).items():
 ```
-`make_hidden_mask` marks random years (or runs of consecutive years) as hidden, never the first or last. `predict_hidden` rebuilds only those years from the rest, using every method. Repeated 200 times.
+`make_hidden_mask` marks random years (or runs of consecutive years) as hidden, never the first or last. `predict_hidden` rebuilds only those years from the rest, using every method. Person 4 repeats this 200 times and scores the results.
 
 **5. SVD: centre, then decompose**
 ```python
@@ -204,7 +204,7 @@ Keep only the first `k` columns of `U`, values of `s` and rows of `Vt`, multiply
 | 3 | 96.3% | 0.114 °C | 19% |
 | 8 (all) | 100% | 0 | 0% |
 
-Plus `p3_scree.png` (explained variance), `p3_reconstruction_rank2.png` (original / rank-2 / residual) and `p3_modes.png`, and the interpolation error table:
+Plus `svd_scree.png` (explained variance), `svd_reconstruction_rank2.png` (original / rank-2 / residual) and `svd_modes.png`, and the interpolation error table:
 
 | RMSE (°C) | isolated years | 10-year gaps |
 |---|---|---|
@@ -220,7 +220,7 @@ Plus `p3_scree.png` (explained variance), `p3_reconstruction_rank2.png` (origina
 
 ---
 
-## Person 3: Regression (`regression.py`)
+## Person 3: Regression (`person3_regression.py`)
 
 **Your sentence:** *"I fitted linear and quadratic models to historical climate data and used them to estimate future temperature trends."*
 
@@ -282,20 +282,20 @@ This is the normal-equations option. `conditioning_table()` compares the two: wi
 # usage example (not in a file): same model, different training window
 for start in (1880, 1940, 1980):
     keep = years >= start
-    fit = rg.fit_polynomial(years[keep], values[keep], degree=1)
+    fit = fit_polynomial(years[keep], values[keep], degree=1)
     print(start, fit.predict([2040]))
 ```
-`validation.forecast_spread()` does this for linear and quadratic over six start years; results are in `reports/tables/p4_forecast_spread.csv`.
+`forecast_spread()` (also in `person3_regression.py`) does exactly this for linear and quadratic over six start years; results are in `reports/tables/regression_forecast_spread.csv`.
 
 **7. Testing on later years**
 ```python
     tr_t, tr_y, te_t, te_y = split_by_year(t, y, cutoff)
     f = fit_polynomial(tr_t, tr_y, d)
 ```
-`cutoff_holdout(t, y, 2005)` trains only on years up to 2005 and scores the model on 2006–2025, years it never saw.
+`cutoff_holdout(t, y, 2005)` (in Person 4's file, built on Person 3's `split_by_year` and `fit_polynomial`) trains only on years up to 2005 and scores the model on 2006–2025, years it never saw.
 
 ### Deliverable to show
-`p2_fits.png` (history, both fitted curves, 95% bands extended to 2040) and:
+`regression_fits.png` (history, both fitted curves, 95% bands extended to 2040) and:
 
 | model | 2030 | 2040 | RMSE on history |
 |---|---|---|---|
@@ -311,7 +311,7 @@ for start in (1880, 1940, 1980):
 
 ---
 
-## Person 4: Validation + dashboard (`validation.py`, `metrics.py`, `app.py`)
+## Person 4: Validation + dashboard (`person4_validation.py`)
 
 **Your sentence:** *"I evaluated the methods using error metrics and integrated the results into an interactive dashboard."*
 
@@ -329,21 +329,21 @@ for start in (1880, 1940, 1980):
 
 ### Code walkthrough
 
-**1. The two error metrics (`metrics.py`)**
+**1. The two error metrics (section 1 of `person4_validation.py`)**
 ```python
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
     return float(np.mean(np.abs(y_true - y_pred)))
 ```
-First line is **RMSE**: square each error, average, take the square root. Second is **MAE**: average of the absolute errors. `metrics.py` also has `max_error` (the worst miss) and `bias` (does the model tend to over- or under-predict).
+First line is **RMSE**: square each error, average, take the square root. Second is **MAE**: average of the absolute errors. The same section also has `max_error` (the worst miss) and `bias` (does the model tend to over- or under-predict).
 
 **2. Testing interpolation on hidden data**
 ```python
         hidden = make_hidden_mask(len(years), round(frac * len(years)), gap_length, rng)
         for name, pred in predict_hidden(years, values, hidden, methods).items():
             rows.append({"trial": trial, "method": name, "gap_length": gap_length,
-                         "rmse": metrics.rmse(values[hidden], pred), "mae": metrics.mae(values[hidden], pred)})
+                         "rmse": rmse(values[hidden], pred), "mae": mae(values[hidden], pred)})
 ```
-Each trial hides a random fraction, lets every interpolation method rebuild it, and records RMSE and MAE **only on the hidden years**. `validation.interpolation_benchmark` repeats this for gap lengths 1, 3, 5 and 10.
+Each trial hides a random fraction, lets every interpolation method rebuild it, and records RMSE and MAE **only on the hidden years**. `interpolation_benchmark` repeats this for gap lengths 1, 3, 5 and 10.
 
 **3. Testing regression on later years (rolling forecast)**
 ```python
@@ -355,14 +355,14 @@ Each trial hides a random fraction, lets every interpolation method rebuild it, 
 
 **4. Testing the SVD reconstruction**
 ```python
-        mask = sv.random_mask(A.shape, frac, rng) if mask_kind == "random" else sv.block_mask(A.shape, gap_length, n_gaps, rng)
+        mask = random_mask(A.shape, frac, rng) if mask_kind == "random" else block_mask(A.shape, gap_length, n_gaps, rng)
         A_obs = np.where(mask, np.nan, A)
         for k in ranks:
-            preds[label] = sv.impute_lowrank(A_obs, k)[mask]
+            preds[label] = impute_lowrank(A_obs, k)[mask]
 ```
 Hide entries of the matrix (random ones, or runs of consecutive years), set them to `NaN`, fill them back in using a rank-`k` SVD for each `k`, and score on the hidden entries only. The same masks are also given to per-region linear and spline interpolation, so every method is compared fairly.
 
-**5. The dashboard (`app.py`)**
+**5. The dashboard (`dashboard()` in `person4_validation.py`)**
 ```python
 tab0, tab1, tab2, tab3, tab4 = st.tabs(["Overview", "1 · Interpolation", "2 · Regression", "3 · SVD", "4 · Validation"])
 ```
@@ -411,13 +411,13 @@ SVD rank vs error: in-sample RMSE 0.31 → 0.17 → 0.11 for k = 1, 2, 3, but on
 
 | | Working code | One graph or table | Explanation of the method | Short talk |
 |---|---|---|---|---|
-| Person 2 | `data_loader.py` | `data_trends.png` or `data_matrix.png` | cleaning steps, what an anomaly is | 3 min |
-| Person 1 | `interpolation.py`, `svd_analysis.py` | error table + `p3_scree.png` | interpolation, SVD, rank, reconstruction error | 4 min |
-| Person 3 | `regression.py` | `p2_fits.png` | least squares, QR vs inverse, extrapolation limits | 3 min |
-| Person 4 | `validation.py`, `app.py` | comparison tables + the dashboard | RMSE/MAE, hidden-data testing, limitations | 3 min |
+| Person 2 | `person2_data.py` | `data_trends.png` or `data_matrix.png` | cleaning steps, what an anomaly is | 3 min |
+| Person 1 | `person1_math.py` | error table + `svd_scree.png` | interpolation, SVD, rank, reconstruction error | 4 min |
+| Person 3 | `person3_regression.py` | `regression_fits.png` | least squares, QR vs inverse, extrapolation limits | 3 min |
+| Person 4 | `person4_validation.py` | comparison tables + the dashboard | RMSE/MAE, hidden-data testing, limitations | 3 min |
 
 Before presenting, run once:
 ```bash
-python scripts/run_all.py
-streamlit run app.py
+python person4_validation.py all
+streamlit run person4_validation.py
 ```
