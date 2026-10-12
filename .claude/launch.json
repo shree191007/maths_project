@@ -4,7 +4,7 @@
     {
       "name": "climatematrix-dashboard",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.headless", "true", "--server.port", "8501", "--browser.gatherUsageStats", "false"],
+      "runtimeArgs": ["-m", "streamlit", "run", "person4_validation.py", "--server.headless", "true", "--server.port", "8501", "--browser.gatherUsageStats", "false"],
       "port": 8501
     }
   ]

@@ -1,7 +1,7 @@
 # ClimateMatrix: results
 
 Data: NASA GISTEMP v4 zonal annual anomalies (°C vs 1951–1980), 1880–2025, 146 years, eight non-overlapping
-latitude bands. All numbers below are produced by `python scripts/run_all.py` and saved in `reports/tables/`.
+latitude bands. All numbers below are produced by `python person4_validation.py all` and saved in `reports/tables/`.
 
 > **Important context.** This annual zonal table contains **no missing values**. Every "missing" observation
 > in this study is hidden on purpose, so every method is scored against a known truth. Real gaps (for example
@@ -18,7 +18,7 @@ Hide 20% of the global series, reconstruct from the rest, repeat 200 times. RMSE
 | cubic spline (natural) | 0.093 | 0.150 | 0.180 | 0.268 |
 | Lagrange, 6-point local | 0.097 | 0.202 | 0.309 | 0.841 |
 
-![reconstruction](reports/figures/p1_reconstruction.png)
+![reconstruction](reports/figures/interpolation_reconstruction.png)
 
 **Linear interpolation wins, and the gap widens as gaps get longer.** Annual anomalies are a smooth trend plus
 interannual noise of about 0.1 °C. Higher-order interpolants pass exactly through that noise and then
@@ -30,7 +30,7 @@ is 7.7 °C, and at 40 it is 5×10⁶ °C. The Vandermonde condition number reach
 amplifies noise in the data by a factor of about 13,000 (25 nodes). That is the Runge phenomenon, which is why local Lagrange
 windows are used elsewhere.
 
-![runge](reports/figures/p1_runge.png)
+![runge](reports/figures/interpolation_runge.png)
 
 ## 2. Regression and extrapolation (Part 2)
 
@@ -42,9 +42,9 @@ Fit of global anomaly on time (τ = centred, scaled year), solved by QR:
 | quadratic | 0.120 | 0.910 | 0.56 | 1.13 (0.88–1.38) | 1.37 (1.11–1.62) | 1.63 (1.36–1.89) |
 | cubic | 0.115 | 0.916 | 0.53 | 1.25 (0.99–1.50) | 1.58 (1.30–1.86) | 1.96 (1.64–2.28) |
 
-(95% prediction intervals in brackets.) Coefficients are in `reports/tables/p2_coefficients.csv`.
+(95% prediction intervals in brackets.) Coefficients are in `reports/tables/regression_coefficients.csv`.
 
-![fits](reports/figures/p2_fits.png)
+![fits](reports/figures/regression_fits.png)
 
 **Train on 1880–2005, forecast 2006–2025:**
 
@@ -64,7 +64,7 @@ A straight line trained on the past under-predicts the last 20 years by 0.44 °C
 | **quadratic** | **0.168** | **0.135** | +0.010 | 86% |
 | cubic | 0.212 | 0.160 | −0.033 | 80% |
 
-![backtest](reports/figures/p2_backtest.png)
+![backtest](reports/figures/validation_regression_backtest.png)
 
 - **Quadratic is the best of the three at forecasting** even though cubic fits the history slightly better (more flexibility
   extrapolates worse).
@@ -72,7 +72,7 @@ A straight line trained on the past under-predicts the last 20 years by 0.44 °C
   because the independent-errors assumption fails: residuals are strongly autocorrelated (lag-1 r = 0.53–0.83).
 - **Normal equations vs QR.** With raw years in the design matrix, cond(X) = 9×10⁹ (quadratic) and cond(XᵀX) = 8×10¹⁹,
   far beyond 1/ε, so the normal equations lose all precision (fitted-value error up to 5×10⁻⁷ °C for cubic, versus 10⁻¹⁶ when time is centred). Centring and scaling time brings cond(X)
-  to 1.7–8. See `p2_conditioning.csv`.
+  to 1.7–8. See `regression_conditioning.csv`.
 
 ## 3. SVD of the region × year matrix (Part 3)
 
@@ -84,7 +84,7 @@ offset so the SVD describes *variation*; column centring and area weighting are 
 | variance explained | 71.7% | 19.8% | 4.7% | 1.6% | 1.0% |
 | cumulative | 71.7% | 91.6% | 96.3% | 97.8% | 98.9% |
 
-![scree](reports/figures/p3_scree.png)
+![scree](reports/figures/svd_scree.png)
 
 - **Mode 1** (72%) has the same sign in every band, with the Arctic largest and a time series that is the global warming
   trend: warming is a shared signal, amplified at high northern latitudes.
@@ -94,8 +94,8 @@ offset so the SVD describes *variation*; column centring and area weighting are 
 - **Rank 2 reconstructs the matrix to 0.17 °C RMSE (29% relative Frobenius error); rank 3 to 0.11 °C.** The measured
   Frobenius error equals √Σ_{i>k}σᵢ² to machine precision at every rank (Eckart–Young), confirmed by the tests.
 
-![modes](reports/figures/p3_modes.png)
-![reconstruction](reports/figures/p3_reconstruction_rank2.png)
+![modes](reports/figures/svd_modes.png)
+![reconstruction](reports/figures/svd_reconstruction_rank2.png)
 
 ## 4. Head-to-head validation (Part 4)
 
@@ -114,18 +114,18 @@ Time-only methods use each region's own series. Low-rank methods use all regions
 | SVD rank 3 | 0.783 | 0.836 |
 | SVD rank 4 | 0.847 | 1.017 |
 
-![matrix random](reports/figures/p4_matrix_random.png)
+![matrix random](reports/figures/validation_matrix_random.png)
 
 **Cross-region information helps (rank 1 beats the row-mean baseline by about 30%), but it does not beat simple temporal
 interpolation on this data.** In-sample error always falls as rank grows (0.31 → 0.17 → 0.11 for k = 1, 2, 3), while
 error on hidden entries is lowest at k = 1 and gets *worse than the baseline* from k = 3. With only 8 regions, a year
 with several gaps leaves fewer observations than free parameters. This is overfitting, not a bug: the same completion
-code recovers an exact rank-2 matrix (error below 1e-4) and degrades the same way past the true rank (tested in `tests/test_svd.py`).
+code recovers an exact rank-2 matrix (error below 1e-4) and degrades the same way past the true rank (tested in `person1_math.py`).
 Shrinking singular values instead of truncating (soft-threshold) removes most of the damage and nearly matches linear
 interpolation on block gaps (0.345 vs 0.335). An informal check of a hybrid (average of linear and soft-threshold with λ=3, 20 random masks) gave 0.312
 vs 0.320 for linear alone; too small a difference to claim, so it is not part of the shipped code.
 
-![rank vs error](reports/figures/p3_error_vs_rank.png)
+![rank vs error](reports/figures/validation_svd_error_vs_rank.png)
 
 ### 4b. Sensitivity to the training period
 
@@ -140,13 +140,13 @@ Forecast for 2040 using the same model but a different first training year:
 | 1960 | 1.27 | 1.62 |
 | 1980 | 1.36 | 1.75 |
 
-![spread](reports/figures/p4_forecast_spread.png)
+![spread](reports/figures/regression_forecast_spread.png)
 
 The 2040 forecast moves by **0.55 °C (linear) and 0.38 °C (quadratic)** just from choosing where the training window
 starts, comparable to the width of the prediction interval itself. Ten-year-ahead RMSE across (training start, forecast origin)
-ranges from 0.06 to 0.84 °C (`p4_training_sensitivity.csv`); the worst cell is a quadratic fitted to only 11 years (1980–1990).
+ranges from 0.06 to 0.84 °C (`validation_training_sensitivity.csv`); the worst cell is a quadratic fitted to only 11 years (1980–1990).
 
-![sensitivity](reports/figures/p4_training_sensitivity.png)
+![sensitivity](reports/figures/validation_training_sensitivity.png)
 
 ## Answer to the research question
 
