@@ -1,83 +1,104 @@
-# ClimateMatrix
+# Least Squares Fit of NASA Temperature Data
 
-A linear-algebra approach to climate trend reconstruction and future temperature estimation, built on
-NASA GISTEMP v4 zonal annual anomalies (1880–2025, eight latitude bands).
+**Objective:** use NASA's historical temperature anomaly data to fit a straight line by least squares, estimate values
+*inside* the observed years (interpolation) and *beyond* them (extrapolation), and measure the errors.
 
-> **Research question.** How effectively can interpolation and low-rank matrix approximation reconstruct
-> missing climate data, and how reliable is extrapolation beyond the observed period?
-
-The whole project is **four Python files, one per person**. Results and interpretation are in
-[REPORT.md](REPORT.md); who did what, in simple words, is in [WHO_DID_WHAT.md](WHO_DID_WHAT.md); every function in
-every file is documented in [DOCUMENTATION.md](DOCUMENTATION.md); the speaking script is
-[PRESENTATION_SCRIPT.md](PRESENTATION_SCRIPT.md).
-
-## Quick start
+The whole project is **four short files, one per person**. Only one model is used: the straight line `y = a + b x`.
 
 ```bash
 pip install -r requirements.txt
-python person4_validation.py all     # runs all four files; writes every figure and table (about 12 s)
-streamlit run person4_validation.py  # the interactive dashboard
-pytest                               # 39 tests, spread across the four files
+python person1_data.py            # load, clean, plot
+python person2_regression.py      # least squares line
+python person3_interpolation.py   # interpolation test
+python person4_results.py         # extrapolation, MAE/RMSE, final picture
+python -m pytest                  # 10 tests
 ```
 
-Each file also runs on its own:
+## The data
 
-```bash
-python person2_data.py        # climate.csv + data figures
-python person1_math.py        # interpolation + SVD results
-python person3_regression.py  # trend fits + 2030/2040 forecasts
-python person4_validation.py  # all the error tests (add `all` to run the other three first)
-```
+NASA GISTEMP v4, global annual **temperature anomaly**, 1880–2025 (146 years). An anomaly is how much warmer (+) or colder (−)
+a year was than the 1951–1980 average, in °C. File: `data/raw/ZonAnn.Ts+dSST.csv` (column `Glob`).
 
-The dataset (`data/raw/ZonAnn.Ts+dSST.csv`, about 10 KB) is included. `download_gistemp(force=True)` in
-`person2_data.py` re-fetches it from <https://data.giss.nasa.gov/gistemp/tabledata_v4/ZonAnn.Ts+dSST.csv>.
+## Who did what
 
-## The four files
-
-| File | Person | What is inside |
+| Person | File | Task |
 |---|---|---|
-| [person2_data.py](person2_data.py) | **2 · Data** | download and clean GISTEMP (`load_zonal`), build the region × year matrix (`region_matrix`), save `data/processed/climate.csv`, trend plots, **plus the chart style and the save helpers every file uses** |
-| [person1_math.py](person1_math.py) | **1 · Mathematics** | interpolation: `linear_interpolate`, `lagrange_interpolate`, `cubic_spline_interpolate`, `vandermonde_interpolate`; SVD: `compute_svd`, `explained_variance`, `reconstruct`, `rank_table`, `impute_lowrank`, `impute_soft` |
-| [person3_regression.py](person3_regression.py) | **3 · Regression** | `design_matrix`, `fit_polynomial` (least squares by QR), `FitResult.predict` with intervals, `extrapolate`, `conditioning_table`, `forecast_spread` |
-| [person4_validation.py](person4_validation.py) | **4 · Validation + dashboard** | `rmse`, `mae`; hidden-data tests for interpolation, regression and SVD; training-period and noise sensitivity; the Streamlit dashboard; the "run everything" entry point |
+| **1** | `person1_data.py` | Load, clean and plot the NASA data |
+| **2** | `person2_regression.py` | Implement least squares linear regression |
+| **3** | `person3_interpolation.py` | Test interpolation on selected historical years |
+| **4** | `person4_results.py` | Calculate extrapolations and MAE / RMSE; prepare the presentation |
 
-Each file contains its own plots and its own tests (`pytest person1_math.py`, and so on), and its docstring at the top
-says what it does and how to run it.
+Each file imports only from the ones before it: `1 → 2 → 3 → 4`.
+
+### Person 1: data (`person1_data.py`)
+- `load_data()` reads the file, keeps `Year` and `Glob`, turns NASA's `***` into missing values, drops repeated years, drops missing values, sorts by year. Returns two arrays: `years`, `anomalies`.
+- `plot_history()` draws the anomaly against the year → `reports/history.png`.
+- Result: 146 years, lowest anomaly −0.48 °C (1909), highest 1.28 °C (2024).
+
+### Person 2: least squares (`person2_regression.py`)
+For a line `y = a + b x` the error in each year is (actual − line). Least squares picks `a` and `b` to make the
+**sum of squared errors** as small as possible:
 
 ```
-person2_data.py  ──►  person1_math.py       ──┐
-   (data, style,   ──►  person3_regression.py ─┼──►  person4_validation.py
-    save helpers)                               ┘       (tests everything + dashboard)
+SSE = Σ (yᵢ − ŷᵢ)²        b = Σ (xᵢ − x̄)(yᵢ − ȳ) / Σ (xᵢ − x̄)²        a = ȳ − b x̄
 ```
 
-The arrows are `import`s and never go backwards, so each person can work on their own file.
-`person1_math.py` and `person3_regression.py` do not import each other.
+- `fit_line(x, y)` computes `a` and `b` with those formulas.
+- `predict(a, b, x)` gives `a + b x`. `sse(x, y, a, b)` gives the SSE.
+- `plot_fit()` → `reports/fitted_line.png`.
+- Result: **y = −16.0480 + 0.008262 · year**, i.e. warming of **0.083 °C per decade**, SSE = 5.441.
+- The tests check it against `numpy.polyfit`, recover an exact line, and confirm that nudging `a` or `b` makes the SSE bigger.
 
-### What each file promises the others
+### Person 3: interpolation (`person3_interpolation.py`)
+Interpolation means estimating a year *inside* the observed period. To test it fairly:
+1. hide 14 selected years (1890, 1900, …, 2020);
+2. fit the line using only the other 132 years;
+3. use the line to estimate the hidden years;
+4. compare with the real values. Error = estimate − actual.
 
-| File | Used by others |
+`interpolate_selected()` returns the table; `plot_interpolation()` → `reports/interpolation.png`; the table is saved as
+`reports/interpolation_errors.csv`. Examples: 1900 actual −0.08, estimated −0.35 (error −0.27); 2020 actual 1.01, estimated
+0.64 (error −0.37).
+
+### Person 4: extrapolation and errors (`person4_results.py`)
+```
+MAE  = average of |error|           RMSE = √( average of error² )
+```
+- `mae()` and `rmse()` implement those two formulas.
+- `extrapolate()` extends the line to 2030 and 2040. `plot_final()` → `reports/final_result.png`.
+- `check_extrapolation()` tests extrapolation on years we *do* know: fit through 2005, estimate 2006–2025.
+
+## Results (from running the code)
+
+| | MAE | RMSE |
+|---|---|---|
+| Line vs the data it was fitted to | 0.157 °C | 0.193 °C |
+| **Interpolation** (14 hidden years) | **0.151 °C** | **0.176 °C** |
+| **Extrapolation test** (fit to 1880–2005, estimate 2006–2025) | **0.442 °C** | **0.475 °C** |
+
+| Year | Estimated anomaly (straight-line extrapolation) |
 |---|---|
-| `person2_data.py` | `load_zonal()`, `load_global()`, `region_matrix(df)` → `(A, years, names)`, `band_area_weights()`, chart style (`new_fig`, `CAT`, `BLUE`, …), `save_figure`, `save_table` |
-| `person1_math.py` | `METHODS` (name → `f(x_known, y_known, x_query)`), `make_hidden_mask`, `predict_hidden`, `compute_svd`, `rank_table`, `random_mask`, `block_mask`, `impute_lowrank`, `impute_soft` |
-| `person3_regression.py` | `fit_polynomial(t, y, degree)` → `FitResult` (`.predict(t, level)`, `.slope`, `.coef`), `extrapolate`, `forecast_spread` |
-| `person4_validation.py` | nothing: it is the top of the chain |
+| 2030 | **0.724 °C** |
+| 2040 | **0.806 °C** |
 
-Where each task from the brief lives:
+![fit and extrapolation](reports/final_result.png)
 
-- Download and clean GISTEMP, region × year matrix, trend plot, `climate.csv` → `person2_data.py`
-- Linear and Lagrange interpolation, cubic spline → `person1_math.py` (Part A)
-- Matrix, `np.linalg.svd`, rebuild with fewer singular values, reconstruction error → `person1_math.py` (Part B)
-- Linear and quadratic regression, least squares, 2030 / 2040, different historical periods → `person3_regression.py`
-- MAE and RMSE; test interpolation on hidden data; test regression on later years; compare SVD errors; dashboard → `person4_validation.py`
+## What the results mean
 
-## Layout
+- The line fits the data to within roughly 0.15–0.19 °C on average, and hidden years inside the data are estimated about as well (0.151 °C MAE).
+- Extrapolation is **less reliable**: when the line is fitted only to 1880–2005 and asked about 2006–2025, its error is nearly three times larger
+  (0.442 °C MAE), and it is always too low (average error −0.442 °C). The recent warming is faster than the long-run straight line.
+  The 2030 and 2040 values above probably also under-estimate the recent trend; the future may not follow the historical linear trend.
+- The 2030 and 2040 values are **simple mathematical extrapolations, not official climate forecasts.**
 
+## Limits of this method
+One straight line has the same slope for all 146 years, so it can't show warming speeding up. Interpolation here is also
+tested on only 14 years, so its error numbers are rough.
+
+## Files
 ```
-person1_math.py  person2_data.py  person3_regression.py  person4_validation.py   the whole project
-data/raw/            GISTEMP CSV                        data/processed/climate.csv   the cleaned table
-reports/figures|tables   everything the four files generate
-requirements.txt  pytest.ini  .streamlit/config.toml     setup
+person1_data.py  person2_regression.py  person3_interpolation.py  person4_results.py   the project
+data/raw/ZonAnn.Ts+dSST.csv                                                           NASA data
+reports/   history.png  fitted_line.png  interpolation.png  final_result.png
+           interpolation_errors.csv  extrapolation.csv                                  outputs
 ```
-
-Output names say where they come from: `data_*`, `interpolation_*`, `svd_*`, `regression_*` are produced by one
-person's file; `validation_*` come from Person 4's tests.
